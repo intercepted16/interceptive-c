@@ -22,10 +22,8 @@ impl<'a> Lexer<'a> {
 
         // Handle the 'print' keyword
         if self.input[self.current_pos..].starts_with("print") {
-            // Skip the 'print' keyword (5 characters)
-            self.current_pos += 5;
-            // Skip whitespace
-            self.skip_whitespace();
+            // Skip the 'print' keyword (5 characters) and the ( character, so 6 characters in total
+            self.current_pos += 6;
             if self.current_char() == '"' {
                 self.current_pos += 1; // Skip the opening quote
                 let start_pos = self.current_pos;
