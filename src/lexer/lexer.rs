@@ -1,4 +1,4 @@
-use crate::lexer::token::Token;
+use crate::lexer::token::{Token, VariableValue};
 
 pub struct Lexer<'a> {
     input: &'a str,
@@ -18,52 +18,86 @@ impl<'a> Lexer<'a> {
             return Token::EOF;
         }
 
-        let c = self.current_char();
-
         // Handle the 'print' keyword
         if self.input[self.current_pos..].starts_with("print") {
-            // Skip the 'print' keyword (5 characters) and the ( character, so 6 characters in total
             self.current_pos += 6;
-            if self.current_char() == '"' {
-                self.current_pos += 1; // Skip the opening quote
+            // get the input from the first bracket to the last bracket
+            let start_pos = self.current_pos;
+            let mut bracket_count = 1;
+            while self.current_pos < self.input.len() {
+                if self.current_char() == '(' {
+                    bracket_count += 1;
+                }
+                else if self.current_char() == ')' {
+                    bracket_count -= 1;
+                    if bracket_count == 0 {
+                        break;
+                    }
+                }
+                self.current_pos += 1;
+            }
+            // Reassign the input to the string inside the brackets
+            self.input = &self.input[start_pos..self.current_pos];
+            self.current_pos = 0;
+            // Now, check if there are any additional arguments
+            let mut args = self.extract_args();
+            while self.current_pos < self.input.len() {
                 let start_pos = self.current_pos;
-                // Find the closing quote
-                while self.current_char() != '"' && self.current_pos < self.input.len() {
+                while self.current_pos < self.input.len() && self.current_char() != ',' {
                     self.current_pos += 1;
                 }
-                // Get the string between the quotes
-                let argument = &self.input[start_pos..self.current_pos];
-                self.current_pos += 1; // Skip the closing quote
-                return Token::PrintWithArgument(argument.to_string());
+                args.push(self.input[start_pos..self.current_pos].to_string());
+                self.current_pos += 1;
             }
-            return Token::Print;
-        }
+            // now remove the additional arguments from the input because we don't need them anymore
+            // to do this just remove after the first comma
+            self.input = self.input.split(',').collect::<Vec<&str>>()[0];
+            return Token::PrintWithArgument(self.input.to_string(), args);
+            }
         // Handle the 'var' keyword
         if self.input[self.current_pos..].starts_with("var") {
-            self.current_pos += 3;
+            self.current_pos += 3; // Move past "var"
             self.skip_whitespace();
-            // Parse the variable name
-            // get the start position of the variable name
+
+            // Find the variable name
             let start_pos = self.current_pos;
-            // get the end position of the variable name
             while self.current_pos < self.input.len() && self.input[self.current_pos..].chars().next().unwrap().is_alphanumeric() {
                 self.current_pos += 1;
             }
-            // get the variable name
             let variable_name = &self.input[start_pos..self.current_pos];
-            // get the variable value
             self.skip_whitespace();
+
+            // Ensure the next character is '='
             if self.current_char() == '=' {
-                self.current_pos += 1;
+                self.current_pos += 1; // Move past '='
                 self.skip_whitespace();
+
                 let start_pos = self.current_pos;
-                while self.current_pos < self.input.len() && self.input[self.current_pos..].chars().next().unwrap().is_digit(10) {
-                    self.current_pos += 1;
+
+                // Check if the value is a string
+                return if self.current_char() == '"' {
+                    self.current_pos += 1; // Move past opening quote
+
+                    while self.current_pos < self.input.len() && self.current_char() != '"' {
+                        self.current_pos += 1;
+                    }
+                    let variable_value = self.input[start_pos..self.current_pos].to_string();
+                    self.current_pos += 1; // Move past closing quote
+
+                    Token::Variable(variable_name.to_string(), VariableValue::String(variable_value))
+                } else {
+                    // Assume the value is an integer
+                    while self.current_pos < self.input.len() && self.input[self.current_pos..].chars().next().unwrap().is_digit(10) {
+                        self.current_pos += 1;
+                    }
+                    let variable_value = self.input[start_pos..self.current_pos].parse::<i32>().unwrap();
+
+                    Token::Variable(variable_name.to_string(), VariableValue::Integer(variable_value as i64))
                 }
-                let variable_value = self.input[start_pos..self.current_pos].parse().unwrap();
-                return Token::Variable(variable_name.to_string(), variable_value);
             }
-            return Token::Variable(variable_name.to_string(), 0);
+
+            // Handle cases where '=' is not present
+            return Token::Variable(variable_name.to_string(), VariableValue::Undefined); // Assuming Undefined is a variant in VariableValue
         }
 
         // Skip unknown characters
@@ -72,12 +106,41 @@ impl<'a> Lexer<'a> {
     }
 
     fn current_char(&self) -> char {
-        self.input[self.current_pos..].chars().next().unwrap()
+        self.input[self.current_pos..].chars().next().unwrap_or('\0')
     }
 
     fn skip_whitespace(&mut self) {
         while self.current_pos < self.input.len() && self.current_char().is_whitespace() {
             self.current_pos += 1;
         }
+    }
+    pub fn extract_args(&mut self) -> Vec<String> {
+        let mut args = Vec::new();
+        self.skip_whitespace(); // Skip leading whitespace before the arguments
+
+        while self.current_pos < self.input.len() {
+            let start_pos = self.current_pos;
+
+            // Find the end of the current argument
+            while self.current_pos < self.input.len() && self.current_char() != ',' {
+                self.current_pos += 1;
+            }
+
+            // Extract the argument and trim leading/trailing whitespace
+            let arg = self.input[start_pos..self.current_pos].trim().to_string();
+            if !arg.is_empty() {
+                args.push(arg);
+            }
+
+            // Move past the comma, if present
+            if self.current_char() == ',' {
+                self.current_pos += 1;
+            }
+
+            // Skip any additional whitespace after the comma
+            self.skip_whitespace();
+        }
+
+        args
     }
 }
