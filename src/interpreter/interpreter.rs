@@ -24,7 +24,12 @@ impl Interpreter {
                     if arg.contains("%s") {
                         println!("The argument contains %s");
                         let mut arg = arg.to_string();
-                        arg = arg.replace("%s", &args[1]);
+                        // Get the variable value
+                        let value = self.variables.get(&args[1]).unwrap();
+                        // pattern match the value
+                        if let VariableValue::String(val) = value {
+                            arg = arg.replace("%s", &val);
+                        }
                         self.print(&arg);
                         return;
                     }
@@ -47,7 +52,9 @@ impl Interpreter {
     pub fn run(&mut self, input: String) {
         let mut lexer = crate::lexer::lexer::Lexer::new(&input);
         loop {
+            println!("On next token");
             let token = lexer.next_token();
+            println!("Token: {:?}", token);
             self.evaluate(&token); // Pass a reference to the token
             if token == Token::EOF {
                 break;
