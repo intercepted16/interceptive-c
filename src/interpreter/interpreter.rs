@@ -18,22 +18,36 @@ impl Interpreter {
             Token::PrintWithArgument(str, args) => {
                 println!("Internal interpreter is printing: {}", str);
                 if str.starts_with('"') && str.ends_with('"') {
-                    // remove the double quotes
+                    let mut number_of_formats = 0;
+                    // remove the double quote
                     let arg = str.trim_matches(|c| c == '"');
-                    // handle %s
-                    if arg.contains("%s") {
-                        println!("The argument contains %s");
-                        let mut arg = arg.to_string();
-                        // Get the variable value
-                        let value = self.variables.get(&args[1]).unwrap();
-                        // pattern match the value
-                        if let VariableValue::String(val) = value {
-                            arg = arg.replace("%s", &val);
+                    // loop over each %s in the string
+                    for c in arg.chars() {
+                        if c == '%' {
+                            number_of_formats += 1;
                         }
-                        self.print(&arg);
-                        return;
                     }
-                    self.print(arg);
+                    // if the number of %s in the string is equal to the number of arguments
+                    // print the string with the arguments
+                    println!("Number of formats: {}", number_of_formats);
+                    if number_of_formats == args.len() - 1 {
+                        let mut arg = arg.to_string();
+                        for a in args {
+                            // ignore the first argument
+                            if a == &args[0] {
+                                continue;
+                            }
+                            println!("Replacing %s with {}", a);
+                            // get the variable value and replace the %s with the value
+                            let value = self.variables.get(a).unwrap();
+                            let replacement = match value {
+                                VariableValue::Integer(i) => i.to_string(),
+                                VariableValue::String(s) => s.clone(),
+                                VariableValue::Undefined => "".to_string(),
+                            };
+                            arg = arg.replacen("%s", &replacement, 1);
+                        }
+                    self.print(&arg);
                     return;
                 }
                 else if self.variables.contains_key(str) {
@@ -42,6 +56,7 @@ impl Interpreter {
                     return;
                 }
             }
+        }
             Token::Print => self.print(""),
             Token::Variable(name, val) => self.assign(name, val.clone()),
             // Handle other tokens

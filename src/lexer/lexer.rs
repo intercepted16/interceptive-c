@@ -45,7 +45,7 @@ impl<'a> Lexer<'a> {
                 self.current_pos += 1; // Move past ')'
 
                 let args_str = &self.input[start_pos..end_pos];
-                let args = self.extract_args_from_str(args_str);
+                let args = self.extract_args(args_str);
 
                 return Token::PrintWithArgument(args[0].clone(), args);
             }
@@ -111,13 +111,25 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn extract_args_from_str(&self, args_str: &str) -> Vec<String> {
+    fn extract_args(&self, args_str: &str) -> Vec<String> {
         let mut args = Vec::new();
         let mut current_pos = 0;
         let input_len = args_str.len();
 
         while current_pos < input_len {
             let start_pos = current_pos;
+            // Check if the current character is a quote
+            // Do this because we want to ignore commas inside quotes
+            if args_str[current_pos..].chars().next().unwrap() == '"' {
+                current_pos += 1; // Move past the opening quote
+                while current_pos < input_len && args_str[current_pos..].chars().next().unwrap() != '"' {
+                    current_pos += 1;
+                }
+                current_pos += 1; // Move past the closing quote
+                // add the argument to the list
+                args.push(args_str[start_pos..current_pos].to_string());
+                continue;
+            }
 
             // Find the end of the current argument
             while current_pos < input_len && args_str[current_pos..].chars().next().unwrap() != ',' {
