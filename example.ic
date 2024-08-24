@@ -1,3 +1,9 @@
 var a = "Hello";
 var b = "World";
 print("%s, %s!\n", a, b);
+
+funky doSomething() {
+    print("I'm doing something!\n");
+}
+
+doSomething();

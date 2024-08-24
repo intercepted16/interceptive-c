@@ -39,6 +39,8 @@ impl Interpreter {
                             }
                             println!("Replacing %s with {}", a);
                             // get the variable value and replace the %s with the value
+                            println!("Getting value for {}", a);
+                            println!("Variables: {:?}", self.variables);
                             let value = self.variables.get(a).unwrap();
                             let replacement = match value {
                                 VariableValue::Integer(i) => i.to_string(),
@@ -68,7 +70,7 @@ impl Interpreter {
         let mut lexer = crate::lexer::lexer::Lexer::new(&input);
         loop {
             println!("On next token");
-            let token = lexer.next_token();
+            let token = lexer.next_token().unwrap_or(Token::EOF);
             println!("Token: {:?}", token);
             self.evaluate(&token); // Pass a reference to the token
             if token == Token::EOF {
