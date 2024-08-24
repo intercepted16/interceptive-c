@@ -176,4 +176,76 @@ impl<'a> Lexer<'a> {
         }
         Ok(Token::Print)
     }
+    fn handle_funky(&mut self) -> Result<Token, String> {
+        // Move past "funky"
+        self.current_pos += 5;
+        // Skip whitespace
+        self.skip_whitespace();
+        // Find the function name
+        while self.current_pos < self.input.len() {
+            if self.input[self.current_pos..].chars().next().unwrap() == '(' {
+                break;
+            }
+            self.current_pos += 1;
+        }
+        // Extract the function name
+        let function_name = &self.input[..self.current_pos];
+        // Skip whitespace
+        self.skip_whitespace();
+        // Ensure the next character is '('
+        while self.current_pos < self.input.len() {
+            if self.input[self.current_pos..].chars().next().unwrap() == '(' {
+                break;
+            }
+            self.current_pos += 1;
+        }
+        // Move past '('
+        self.current_pos += 1;
+        // Skip whitespace
+        self.skip_whitespace();
+        let args = self.extract_args(&self.input[self.current_pos..]);
+        // Move past arguments
+        self.current_pos += args.len();  // Assuming `args` is of type `String` or a similar type
+
+        // Skip whitespace
+        self.skip_whitespace();
+
+        // Ensure the next character is '{'
+        while self.current_pos < self.input.len() {
+            if self.input[self.current_pos..].chars().next().unwrap() == '{' {
+                break;
+            }
+            self.current_pos += 1;
+        }
+        // Move past '{'
+        self.current_pos += 1;
+
+        // Skip whitespace
+        self.skip_whitespace();
+
+        // Find the closing curly brace
+        let mut start_pos = self.current_pos;
+        let mut bracket_count = 1;
+        while self.current_pos < self.input.len() {
+            if self.input[self.current_pos..].chars().next().unwrap() == '{' {
+                bracket_count += 1;
+            } else if self.input[self.current_pos..].chars().next().unwrap() == '}' {
+                bracket_count -= 1;
+                if bracket_count == 0 {
+                    break;
+                }
+            }
+            self.current_pos += 1;
+        }
+        let end_pos = self.current_pos;
+
+        // Move past '}'
+        self.current_pos += 1;
+
+        // Extract the definition without curly braces
+        let definition = &self.input[start_pos..end_pos];
+
+        Ok(Token::FunctionDefinition(function_name.to_string(), definition.to_string(), args))
+    }
+
 }

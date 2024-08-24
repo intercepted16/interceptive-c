@@ -61,6 +61,17 @@ impl Interpreter {
         }
             Token::Print => self.print(""),
             Token::Variable(name, val) => self.assign(name, val.clone()),
+            Token::FunctionDefinition(name, body, args) => {
+                println!("Function body: {}", body);
+                // create a new interpreter and run the function body
+                // so it has its own scope
+                let mut interpreter = Interpreter::new();
+                for (i, arg) in args.iter().enumerate() {
+                    interpreter.assign(arg, VariableValue::String(args[i].clone()));
+                }
+                interpreter.run(body.to_string());
+
+            },
             // Handle other tokens
             _ => {},
         }
