@@ -2,80 +2,89 @@ use crate::lexer::token::Token;
 use std::collections::HashMap;
 use crate::lexer::token::VariableValue;
 
+impl Interpreter {
+
+}
+
 pub struct Interpreter {
     pub variables: HashMap<String, VariableValue>,
+    pub functions: HashMap<String, String>,
+    pub call_stack: Vec<String>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
             variables: HashMap::new(),
+            functions: HashMap::new(),
+            call_stack: Vec::new(),
         }
     }
-
-    pub fn evaluate(&mut self, token: &Token) {
-        match token {
-            Token::PrintWithArgument(str, args) => {
-                println!("Internal interpreter is printing: {}", str);
-                if str.starts_with('"') && str.ends_with('"') {
-                    let mut number_of_formats = 0;
-                    // remove the double quote
-                    let arg = str.trim_matches(|c| c == '"');
-                    // loop over each %s in the string
-                    for c in arg.chars() {
-                        if c == '%' {
-                            number_of_formats += 1;
+        pub fn evaluate(&mut self, token: &Token) {
+            match token {
+                Token::PrintWithArgument(str, args) => {
+                    println!("Internal interpreter is printing: {}", str);
+                    if str.starts_with('"') && str.ends_with('"') {
+                        let mut number_of_formats = 0;
+                        let arg = str.trim_matches(|c| c == '"');
+                        for c in arg.chars() {
+                            if c == '%' {
+                                number_of_formats += 1;
+                            }
+                        }
+                        println!("Number of formats: {}", number_of_formats);
+                        if number_of_formats == args.len() - 1 {
+                            let mut arg = arg.to_string();
+                            for a in args {
+                                if a == &args[0] {
+                                    continue;
+                                }
+                                println!("Replacing %s with {}", a);
+                                let value = self.variables.get(a).unwrap();
+                                let replacement = match value {
+                                    VariableValue::Integer(i) => i.to_string(),
+                                    VariableValue::String(s) => s.clone(),
+                                    VariableValue::Undefined => "".to_string(),
+                                };
+                                arg = arg.replacen("%s", &replacement, 1);
+                            }
+                            self.print(&arg);
+                            return;
+                        } else if self.variables.contains_key(str) {
+                            let value = self.variables.get(str).unwrap();
+                            self.print(&value.eq(&VariableValue::String("".to_string())).to_string());
+                            return;
                         }
                     }
-                    // if the number of %s in the string is equal to the number of arguments
-                    // print the string with the arguments
-                    println!("Number of formats: {}", number_of_formats);
-                    if number_of_formats == args.len() - 1 {
-                        let mut arg = arg.to_string();
-                        for a in args {
-                            // ignore the first argument
-                            if a == &args[0] {
-                                continue;
-                            }
-                            println!("Replacing %s with {}", a);
-                            // get the variable value and replace the %s with the value
-                            println!("Getting value for {}", a);
-                            println!("Variables: {:?}", self.variables);
-                            let value = self.variables.get(a).unwrap();
-                            let replacement = match value {
-                                VariableValue::Integer(i) => i.to_string(),
-                                VariableValue::String(s) => s.clone(),
-                                VariableValue::Undefined => "".to_string(),
-                            };
-                            arg = arg.replacen("%s", &replacement, 1);
+                }
+                Token::Print => self.print(""),
+                Token::Variable(name, val) => self.assign(name, val.clone()),
+                Token::FunctionDefinition(name, body, args) => {
+                    println!("Function body: {}", body);
+                    println!("Inserting function: {} with body: {}", name, body);
+                    self.functions.insert(name.to_string(), body.to_string());
+                }
+                Token::FunctionCall(name, args) => {
+                    if self.call_stack.contains(name) {
+                        println!("Error: Recursive call detected for function {}", name);
+                        return;
+                    }
+                    self.call_stack.push(name.to_string());
+                    println!("Functions are: {:?}", self.functions);
+                    let function = self.functions.get(name).unwrap();
+                    if let (body) = function {
+                        let mut interpreter = Interpreter::new();
+                        for (i, arg) in args.iter().enumerate() {
+                            interpreter.assign(arg, VariableValue::String(args[i].clone()));
                         }
-                    self.print(&arg);
-                    return;
+                        interpreter.run(body.to_string());
+                    }
+                    self.call_stack.pop();
                 }
-                else if self.variables.contains_key(str) {
-                    let value = self.variables.get(str).unwrap();
-                    self.print(&value.eq(&VariableValue::String("".to_string())).to_string());
-                    return;
-                }
+                _ => {}
             }
         }
-            Token::Print => self.print(""),
-            Token::Variable(name, val) => self.assign(name, val.clone()),
-            Token::FunctionDefinition(name, body, args) => {
-                println!("Function body: {}", body);
-                // create a new interpreter and run the function body
-                // so it has its own scope
-                let mut interpreter = Interpreter::new();
-                for (i, arg) in args.iter().enumerate() {
-                    interpreter.assign(arg, VariableValue::String(args[i].clone()));
-                }
-                interpreter.run(body.to_string());
 
-            },
-            // Handle other tokens
-            _ => {},
-        }
-    }
 
     pub fn run(&mut self, input: String) {
         let mut lexer = crate::lexer::lexer::Lexer::new(&input);

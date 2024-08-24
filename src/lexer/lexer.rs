@@ -11,6 +11,10 @@ fn keywords() -> Vec<&'static str> {
     vec!["var", "print", "if", "else", "while", "for", "funky", "here"]
 }
 
+fn syntax() -> Vec<&'static str> {
+    vec!["()"]
+}
+
 
 pub struct Lexer<'a> {
     input: &'a str,
@@ -44,7 +48,15 @@ impl<'a> Lexer<'a> {
                     "print" => self.handle_print(),
                     "funky" => self.handle_funky(),
                     _ => Err(format!("Unknown keyword: {}", keyword)),
-                }
+                };
+            }
+        }
+        for symbol in syntax() {
+            if self.input[self.current_pos..].starts_with(&symbol) {
+                return match symbol {
+                    "()" => self.handle_fn_call(),
+                    _ => Err(format!("Unknown symbol: {}", symbol)),
+                };
             }
         }
         self.current_pos += 1;
@@ -179,73 +191,84 @@ impl<'a> Lexer<'a> {
     fn handle_funky(&mut self) -> Result<Token, String> {
         // Move past "funky"
         self.current_pos += 5;
-        // Skip whitespace
         self.skip_whitespace();
-        // Find the function name
-        while self.current_pos < self.input.len() {
-            if self.input[self.current_pos..].chars().next().unwrap() == '(' {
-                break;
-            }
-            self.current_pos += 1;
+
+        // State machine for parsing
+        enum State {
+            Name,
+            Args,
+            Body,
         }
-        // Extract the function name
-        let function_name = &self.input[..self.current_pos];
-        // Skip whitespace
-        self.skip_whitespace();
-        // Ensure the next character is '('
+
+        let mut state = State::Name;
+        let mut function_name = String::new();
+        let mut args = Vec::new();
+        let mut body = String::new();
+        let mut bracket_count = 0;
+
         while self.current_pos < self.input.len() {
-            if self.input[self.current_pos..].chars().next().unwrap() == '(' {
-                break;
-            }
-            self.current_pos += 1;
-        }
-        // Move past '('
-        self.current_pos += 1;
-        // Skip whitespace
-        self.skip_whitespace();
-        let args = self.extract_args(&self.input[self.current_pos..]);
-        // Move past arguments
-        self.current_pos += args.len();  // Assuming `args` is of type `String` or a similar type
-
-        // Skip whitespace
-        self.skip_whitespace();
-
-        // Ensure the next character is '{'
-        while self.current_pos < self.input.len() {
-            if self.input[self.current_pos..].chars().next().unwrap() == '{' {
-                break;
-            }
-            self.current_pos += 1;
-        }
-        // Move past '{'
-        self.current_pos += 1;
-
-        // Skip whitespace
-        self.skip_whitespace();
-
-        // Find the closing curly brace
-        let mut start_pos = self.current_pos;
-        let mut bracket_count = 1;
-        while self.current_pos < self.input.len() {
-            if self.input[self.current_pos..].chars().next().unwrap() == '{' {
-                bracket_count += 1;
-            } else if self.input[self.current_pos..].chars().next().unwrap() == '}' {
-                bracket_count -= 1;
-                if bracket_count == 0 {
-                    break;
+            match state {
+                State::Name => {
+                    if let Some(ch) = self.current_char() {
+                        if ch == '(' {
+                            state = State::Args;
+                            self.current_pos += 1;
+                            self.skip_whitespace();
+                        } else {
+                            function_name.push(ch);
+                            self.current_pos += 1;
+                        }
+                    }
+                }
+                State::Args => {
+                    if let Some(ch) = self.current_char() {
+                        if ch == ')' {
+                            state = State::Body;
+                            self.current_pos += 1;
+                            self.skip_whitespace();
+                        } else {
+                            args.push(ch.to_string());
+                            self.current_pos += 1;
+                        }
+                    }
+                }
+                State::Body => {
+                    if let Some(ch) = self.current_char() {
+                        if ch == '{' {
+                            bracket_count += 1;
+                        } else if ch == '}' {
+                            bracket_count -= 1;
+                            if bracket_count == 0 {
+                                self.current_pos += 1;
+                                break;
+                            }
+                        }
+                        body.push(ch);
+                        self.current_pos += 1;
+                    }
                 }
             }
-            self.current_pos += 1;
         }
-        let end_pos = self.current_pos;
 
-        // Move past '}'
-        self.current_pos += 1;
+        if bracket_count != 0 {
+            return Err("Unmatched curly braces in function body".to_string());
+        }
 
-        // Extract the definition without curly braces
-        let definition = &self.input[start_pos..end_pos];
-
-        Ok(Token::FunctionDefinition(function_name.to_string(), definition.to_string(), args))
+        Ok(Token::FunctionDefinition(function_name.trim().to_string(), body.trim().to_string(), args))
     }
 
+    // Handles function calls
+    fn handle_fn_call(&mut self) -> Result<Token, String> {
+        // get the start position
+        let start_pos = self.current_pos;
+        // go back till '\n'
+        while self.current_pos > 0 && self.input[self.current_pos..].chars().next().unwrap() != '\n' {
+            self.current_pos -= 1;
+        }
+        // move past '\n'
+        self.current_pos += 1;
+        let function_name = &self.input[self.current_pos..start_pos];
+        println!("Function name: {:?}", function_name);
+        Ok(Token::FunctionCall(function_name.to_string(), vec![]))
+    }
 }

@@ -41,4 +41,11 @@ pub(crate) enum Token {
     /// * `definition` - The function's definition or body.
     /// * `arguments` - A list of argument names for the function.
     FunctionDefinition(String, String, Vec<String>),
+
+    /// Represents a function call.
+    ///
+    /// # Arguments
+    /// * `name` - The name of the function.
+    /// * `arguments` - A list of arguments to pass to the function.
+    FunctionCall(String, Vec<String>),
 }
