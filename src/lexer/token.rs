@@ -14,17 +14,6 @@ pub(crate) enum Token {
     /// Indicates the end of the file or input stream.
     EOF,
 
-    /// Represents a print statement without arguments.
-    Print,
-
-    /// Represents a print statement with an argument.
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - The message to print.
-    /// * `arguments` - A list of additional arguments for the print statement.
-    PrintWithArgument(String, Vec<String>),
-
     /// Represents a variable declaration or usage.
     ///
     /// # Arguments

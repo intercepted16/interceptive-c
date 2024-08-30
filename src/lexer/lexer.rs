@@ -45,14 +45,24 @@ impl<'a> Lexer<'a> {
                 // match the keyword
                 return match keyword {
                     "var" => self.handle_var(),
-                    "print" => self.handle_print(),
                     "funky" => self.handle_funky(),
                     _ => Err(format!("Unknown keyword: {}", keyword)),
                 };
             }
         }
         for symbol in syntax() {
-            if self.input[self.current_pos..].starts_with(&symbol) {
+            // check if the syntax is anywhere on the current line
+            // first get input from the current position to the end
+            let start_pos = self.current_pos;
+            while self.current_pos < self.input.len() && self.input[self.current_pos..].chars().next().unwrap() != '\n' {
+                self.current_pos += 1;
+            }
+            println!("Current pos: {}", self.current_pos);
+            println!("Start pos: {}", start_pos);
+            println!("input from start to current pos: {}", self.input[start_pos..self.current_pos].to_string());
+            println!("10 chars from current pos: {}", self.input[self.current_pos..self.current_pos + 10].to_string());
+            // check if the syntax is present anywhere on the current line
+            if self.input[start_pos..self.current_pos].contains(&symbol) {
                 return match symbol {
                     "()" => self.handle_fn_call(),
                     _ => Err(format!("Unknown symbol: {}", symbol)),
@@ -153,41 +163,7 @@ impl<'a> Lexer<'a> {
         Ok(Token::Variable(variable_name.to_string(), VariableValue::Undefined))
     }
 
-    fn handle_print(&mut self) -> Result<Token, String> {
-        self.current_pos += 5; // Move past "print"
-        self.skip_whitespace();
 
-        if let Some('(') = self.current_char() {
-            self.current_pos += 1; // Move past '('
-            let start_pos = self.current_pos;
-            let mut bracket_count = 1;
-
-            while let Some(ch) = self.current_char() {
-                if ch == '(' {
-                    bracket_count += 1;
-                } else if ch == ')' {
-                    bracket_count -= 1;
-                    if bracket_count == 0 {
-                        break;
-                    }
-                }
-                self.current_pos += 1;
-            }
-
-            if self.current_char().is_none() {
-                return Err("Expected ')'".to_string());
-            }
-
-            let end_pos = self.current_pos;
-            self.current_pos += 1; // Move past ')'
-
-            let args_str = &self.input[start_pos..end_pos];
-            let args = self.extract_args(args_str);
-
-            return Ok(Token::PrintWithArgument(args[0].clone(), args));
-        }
-        Ok(Token::Print)
-    }
     fn handle_funky(&mut self) -> Result<Token, String> {
         // Move past "funky"
         self.current_pos += 5;
