@@ -1,5 +1,6 @@
 # interceptive-c
 ![alt text](docs/image.png)
+
 interceptive-c is a work in progress progamming language, written in Rust. It is inspired by the syntax of Go, Kotlin and Rust itself. However, many fundamentals from these languages are not copied over; primarily the syntax.
 
 
